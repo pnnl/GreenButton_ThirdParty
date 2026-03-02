@@ -1,0 +1,11 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed Apr 30 13:43:25 PDT 2025
+http\://maven.springframework.org/release/.error=Could not transfer artifact org.springframework.security\:spring-security-acl\:pom\:3.2.3.RELEASE from/to spring-maven-release (http\://maven.springframework.org/release)\: maven.springframework.org
+@default-spring-maven-snapshot-http\://maven.springframework.org/snapshot/.lastUpdated=1746045805165
+https\://oss.sonatype.org/content/repositories/snapshots/.lastUpdated=1746045805195
+https\://oss.sonatype.org/content/repositories/snapshots/.error=
+https\://oss.sonatype.org/content/repositories/releases/.lastUpdated=1746045805279
+http\://maven.springframework.org/snapshot/.error=Could not transfer artifact org.springframework.security\:spring-security-acl\:pom\:3.2.3.RELEASE from/to spring-maven-snapshot (http\://maven.springframework.org/snapshot)\: maven.springframework.org
+http\://maven.springframework.org/milestone/.error=Could not transfer artifact org.springframework.security\:spring-security-acl\:pom\:3.2.3.RELEASE from/to spring-maven-milestone (http\://maven.springframework.org/milestone)\: maven.springframework.org
+@default-spring-maven-milestone-http\://maven.springframework.org/milestone/.lastUpdated=1746045805163
+@default-spring-maven-release-http\://maven.springframework.org/release/.lastUpdated=1746045805162

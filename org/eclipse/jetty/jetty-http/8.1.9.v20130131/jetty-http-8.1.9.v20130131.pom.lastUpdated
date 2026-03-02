@@ -1,0 +1,11 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Wed Apr 30 13:43:32 PDT 2025
+http\://maven.springframework.org/release/.error=Could not transfer artifact org.eclipse.jetty\:jetty-http\:pom\:8.1.9.v20130131 from/to spring-maven-release (http\://maven.springframework.org/release)\: maven.springframework.org
+@default-spring-maven-snapshot-http\://maven.springframework.org/snapshot/.lastUpdated=1746045812878
+https\://oss.sonatype.org/content/repositories/snapshots/.lastUpdated=1746045812911
+https\://oss.sonatype.org/content/repositories/snapshots/.error=
+https\://oss.sonatype.org/content/repositories/releases/.lastUpdated=1746045812990
+http\://maven.springframework.org/snapshot/.error=Could not transfer artifact org.eclipse.jetty\:jetty-http\:pom\:8.1.9.v20130131 from/to spring-maven-snapshot (http\://maven.springframework.org/snapshot)\: maven.springframework.org
+http\://maven.springframework.org/milestone/.error=Could not transfer artifact org.eclipse.jetty\:jetty-http\:pom\:8.1.9.v20130131 from/to spring-maven-milestone (http\://maven.springframework.org/milestone)\: maven.springframework.org
+@default-spring-maven-milestone-http\://maven.springframework.org/milestone/.lastUpdated=1746045812878
+@default-spring-maven-release-http\://maven.springframework.org/release/.lastUpdated=1746045812877

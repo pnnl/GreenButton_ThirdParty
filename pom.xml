@@ -90,30 +90,31 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>1.7</java.version>
+        <java.version>11</java.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
         <!-- Spring -->
-        <spring.version>4.0.6.RELEASE</spring.version>
-        <spring.security.version>3.2.3.RELEASE</spring.security.version>
-        <spring-data-jpa.version>1.4.3.RELEASE</spring-data-jpa.version>
+        <spring.version>4.3.30.RELEASE</spring.version>
+        <spring.security.version>4.2.20.RELEASE</spring.security.version>
+        <spring-data-jpa.version>1.11.23.RELEASE</spring-data-jpa.version>
         <spring-security-oauth2.version>2.0.2.RELEASE</spring-security-oauth2.version>
-        <openespi-common.version>1.3-SNAPSHOT</openespi-common.version>
+        <openespi-common.version>1.4-BUILD-PNNL</openespi-common.version>
         <apache-httpcomponent.version>4.3.2</apache-httpcomponent.version>
         <javax-servlet.version>3.0.1</javax-servlet.version>
 
         <!-- Hibernate / JPA -->
-        <hibernate.version>4.2.1.Final</hibernate.version>
+        <hibernate.version>5.4.33.Final</hibernate.version>
+        <hibernate-validator.version>5.4.3.Final</hibernate-validator.version>
 
-        <!-- Bean validation -->
-        <hibernate-validator.version>4.3.1.Final</hibernate-validator.version>
-
+        <tomcat.version>7.0.109</tomcat.version>
         <!-- Database access -->
-        <tomcat-jdbc.version>7.0.42</tomcat-jdbc.version>
+        <tomcat-jdbc.version>7.0.109</tomcat-jdbc.version>
         <ehcache.version>2.6.6</ehcache.version>
         <hsqldb.version>2.3.0</hsqldb.version>
-        <mysql.version>5.1.18</mysql.version>
+        <mysql.version>8.0.16</mysql.version>
+        <mysql.versionold>5.1.18</mysql.versionold>
+        
 
         <!-- Build Plugins -->
         <maven-compiler-plugin.version>3.7.0</maven-compiler-plugin.version>
@@ -137,7 +138,7 @@
             </activation>
             <properties>
                 <datacustodian.base.url>http://localhost:8080/DataCustodian</datacustodian.base.url>
-                <thirdparty.base.url>http://localhost:8080/ThirdParty</thirdparty.base.url>
+                <thirdparty.base.url>http://localhost:9090/ThirdParty</thirdparty.base.url>
                 <template>oauthTemplate</template>
                 <profile>devmysql</profile>
                 <database>mysql</database>
@@ -158,13 +159,25 @@
             </properties>
         </profile>
     </profiles>
-
+    <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-framework-bom</artifactId>
+            <version>${spring.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>org.greenbuttonalliance</groupId>
-            <artifactId>Common</artifactId>
+            <artifactId>OpenESPI-Common</artifactId>
             <version>${openespi-common.version}</version>
-        </dependency>
+            <scope>system</scope>
+            <systemPath>/GBA/OpenESPI-Common-java/target/OpenESPI-Common-1.4-BUILD-PNNL.jar</systemPath>
+          </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-core</artifactId>
@@ -214,8 +227,43 @@
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <version>${javax-servlet.version}</version>
-<!--             <scope>provided</scope> -->
+            <scope>provided</scope> 
         </dependency>
+        <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>javax.activation-api</artifactId>
+            <version>1.2.0</version>
+          </dependency>
+          <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.1</version>
+          </dependency>
+          <dependency>
+            <groupId>com.sun.xml.bind</groupId>
+            <artifactId>jaxb-core</artifactId>
+            <version>2.3.0.1</version>
+          </dependency>
+           <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>2.6.7</version>  <!-- or whatever is compatible with your Spring version -->
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.6.7</version>
+  </dependency>
+          <dependency>
+            <groupId>com.sun.xml.bind</groupId>
+            <artifactId>jaxb-impl</artifactId>
+            <version>2.3.3</version>
+          </dependency>
+          <dependency>
+            <groupId>javax.activation</groupId>
+            <artifactId>activation</artifactId>
+            <version>1.1.1</version>
+          </dependency>
         <dependency>
             <groupId>javax.servlet.jsp</groupId>
             <artifactId>jsp-api</artifactId>
@@ -544,11 +592,109 @@
                 <artifactId>tomcat7-maven-plugin</artifactId>
                 <version>2.0</version>
                 <configuration>
-                    <path>/ThirdParty</path>
-                    <url>https://sandbox.greenbutton.org:8443/manager/text</url>
-                    <server>TomcatServerDeployment</server>
+                  <port>9090</port>
+                  <path>/ThirdParty</path>
+                  <url>http://sandbox.greenbuttonalliance.org:8443/manager/text</url>
+                  <server>TomcatServerDeployment</server>
                 </configuration>
-            </plugin>
+                <dependencies>
+                  <dependency>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-core</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-util</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-coyote</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-api</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-jdbc</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-dbcp</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-servlet-api</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-jsp-api</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-jasper</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-jasper-el</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-el-api</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-catalina</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-tribes</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-catalina-ha</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-annotations-api</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat</groupId>
+                    <artifactId>tomcat-juli</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-logging-juli</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.apache.tomcat.embed</groupId>
+                    <artifactId>tomcat-embed-logging-log4j</artifactId>
+                    <version>7.0.109</version>
+                  </dependency>
+                  <dependency>
+                    <groupId>org.eclipse.jdt.core.compiler</groupId>
+                    <artifactId>ecj</artifactId>
+                    <version>4.4.2</version>
+                  </dependency>
+                </dependencies>
+              </plugin>
             <plugin>
                 <groupId>org.jasig.maven</groupId>
                 <artifactId>maven-notice-plugin</artifactId>
@@ -660,4 +806,3 @@
         </repository>
     </repositories>
 </project>
-

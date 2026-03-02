@@ -1,258 +1,282 @@
-/*
- *
- *    Copyright (c) 2018-2021 Green Button Alliance, Inc.
- *
- *    Portions (c) 2013-2018 EnergyOS.org
- *
- *     Licensed under the Apache License, Version 2.0 (the "License");
- *     you may not use this file except in compliance with the License.
- *     You may obtain a copy of the License at
- *
- *         http://www.apache.org/licenses/LICENSE-2.0
- *
- *     Unless required by applicable law or agreed to in writing, software
- *     distributed under the License is distributed on an "AS IS" BASIS,
- *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *     See the License for the specific language governing permissions and
- *     limitations under the License.
- *
- */
-
 package org.greenbuttonalliance.espi.thirdparty.web;
 
-import org.greenbuttonalliance.espi.common.domain.*;
+import org.greenbuttonalliance.espi.common.domain.ApplicationInformation;
+import org.greenbuttonalliance.espi.common.domain.Authorization;
+import org.greenbuttonalliance.espi.common.domain.RetailCustomer;
+import org.greenbuttonalliance.espi.common.domain.Routes;
 import org.greenbuttonalliance.espi.common.service.AuthorizationService;
+import org.greenbuttonalliance.espi.common.service.ApplicationInformationService;
+import org.greenbuttonalliance.espi.common.service.RetailCustomerService;
 import org.greenbuttonalliance.espi.thirdparty.repository.UsagePointRESTRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.common.OAuth2AccessToken;
 import org.springframework.security.oauth2.common.exceptions.UserDeniedAuthorizationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import javax.persistence.NoResultException;
 import javax.xml.bind.JAXBException;
 import java.security.Principal;
 import java.util.GregorianCalendar;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Controller
 public class AuthorizationController extends BaseController {
 
-	@Autowired
-	private AuthorizationService authorizationService;
+    private static final Logger log = LoggerFactory.getLogger(AuthorizationController.class);
 
-	// TODO The following is legacy code that will do the import of a
-	// subscription
-	// from a DC. Needs to be separated out of the "repository" level and be
-	// callable as a TP specific service level.
+    @Autowired
+    private AuthorizationService authorizationService;
 
-	@Autowired
-	private UsagePointRESTRepository usagePointRESTRepository;
+    @Autowired
+    private ApplicationInformationService applicationInformationService;
 
-	@Autowired
-	@Qualifier("clientRestTemplateFactory")
-	private ClientRestTemplateFactory templateFactory;
+    @Autowired
+    private RetailCustomerService retailCustomerService;
 
-	@RequestMapping(value = Routes.THIRD_PARTY_OAUTH_CODE_CALLBACK, method = RequestMethod.GET)
-	public String authorization(
-			String code,
-			String state,
-			ModelMap model,
-			Principal principal,
-			@RequestParam(value = "error", required = false) String error,
-			@RequestParam(value = "error_description", required = false) String error_description,
-			@RequestParam(value = "error_uri", required = false) String error_uri) {
+    @Autowired
+    private UsagePointRESTRepository usagePointRESTRepository;
 
-		try {
+    @Autowired
+    @Qualifier("clientRestTemplateFactory")
+    private ClientRestTemplateFactory templateFactory;
 
-			// Is /oauth/authorization response valid (i.e. is the "state"
-			// element correct)?
-			Authorization authorization = authorizationService
-					.findByState(state);
+    @RequestMapping(
+        value = { Routes.THIRD_PARTY_OAUTH_CODE_CALLBACK, "/espi/1_1/OAuthCallBack" },
+        method = RequestMethod.GET)
+    public String authorization(
+        @RequestParam(value = "code", required = false) String code,
+        @RequestParam(value = "state", required = false) String state,
+        ModelMap model,
+        Principal principal,
+        @RequestParam(value = "error", required = false) String error,
+        @RequestParam(value = "error_description", required = false) String error_description,
+        @RequestParam(value = "error_uri", required = false) String error_uri) {
 
-			// Process valid /oauth/authorization response
-			ApplicationInformation applicationInformation = authorization
-					.getApplicationInformation();
+        log.info("OAuth-callback reached: code={}, state={}", code, state);
 
-			// Verify /oauth/authorization Endpoint process completed
-			// successfully
-			if (code != null) {
-				try {
+        Authorization authorization = null;
+        ApplicationInformation appInfo = null;
+        
+        try {
+            // Try to find existing authorization by state
+            try {
+                authorization = authorizationService.findByState(state);
+                appInfo = authorization.getApplicationInformation();
+            } catch (NoResultException | EmptyResultDataAccessException ex) {
+                // No existing authorization found, create a new one
+                log.info("No existing authorization found for state: {}, creating new one", state);
+                
+                // Get the third_party application info
+                try {
+                    appInfo = applicationInformationService.findByClientId("third_party");
+                } catch (Exception appEx) {
+                    log.error("Could not find third_party application info", appEx);
+                    String petsafePort = System.getenv().getOrDefault("VITE_PETSAFE_PORT", "5174");
+                    if (!petsafePort.matches("[0-9]{2,5}")) petsafePort = "5174";
+                    return "redirect:http://localhost:" + petsafePort + "/?error=app_not_found";
+                }
+                
+                // Create new authorization
+                authorization = new Authorization();
+                authorization.setState(state);
+                authorization.setApplicationInformation(appInfo);
+                authorization.setUpdated(new GregorianCalendar());
+                authorization.setUUID(java.util.UUID.randomUUID());
+                
+                // Try to find a retail customer (may not be available in server-to-server call)
+                try {
+                    RetailCustomer customer = retailCustomerService.findById(1L); // Default to first customer
+                    authorization.setRetailCustomer(customer);
+                } catch (Exception custEx) {
+                    log.warn("Could not find retail customer, continuing without", custEx);
+                }
+                
+                authorizationService.persist(authorization);
+            }
 
-					// Update Authorization record with returned authorization
-					// code for audit purposes
-					authorization.setCode(code);
-					authorization.setGrantType("authorization_code");
-					authorization.setUpdated(new GregorianCalendar());
-					authorizationService.merge(authorization);
+            if (code != null) {
+                // persist the code and grant type
+                authorization.setCode(code);
+                authorization.setGrantType("authorization_code");
+                authorization.setUpdated(new GregorianCalendar());
+                authorizationService.merge(authorization);
 
-					// Format /oauth/token Endpoint request
-					String url = String
-							.format("%s?redirect_uri=%s&code=%s&grant_type=authorization_code",
-									applicationInformation
-											.getAuthorizationServerTokenEndpoint(),
-									applicationInformation.getRedirectUri(),
-									code);
+                // build form for token request
+                MultiValueMap<String,String> form = new LinkedMultiValueMap<>();
+                form.add("grant_type",   "authorization_code");
+                form.add("code",         code);
+                form.add("redirect_uri", appInfo.getRedirectUri());
 
-					// Build /oauth/token Endpoint request
-					ClientRestTemplate restTemplate = templateFactory
-							.newClientRestTemplate(
-									applicationInformation.getClientId(),
-									applicationInformation.getClientSecret());
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-					// Issue /oauth/token Endpoint request
-					AccessToken token = restTemplate.getForObject(url,
-							AccessToken.class);
+                HttpEntity<MultiValueMap<String,String>> request =
+                    new HttpEntity<>(form, headers);
 
-					// Process /oauth/token Endpoint response
+                String tokenEndpoint = appInfo.getAuthorizationServerTokenEndpoint();
+                log.info("About to exchange code for token @ {}", tokenEndpoint);
 
-					if (token.getAccessToken() != null) {
-						authorization.setAccessToken(token.getAccessToken());
-						authorization.setTokenType(token.getTokenType());
-						authorization.setExpiresIn(token.getExpiresIn());
-						authorization.setRefreshToken(token.getRefreshToken());
-						authorization.setScope(token.getScope());
-						authorization.setAuthorizationURI(token
-								.getAuthorizationURI());
-						authorization.setResourceURI(token.getResourceURI());
-						authorization.setUpdated(new GregorianCalendar());
-						authorization.setStatus("1"); // Set authorization
-														// record status as
-														// "Active"
-						authorization.setState(null); // Clear State as a
-														// security measure
+                RestTemplate restTemplate =
+                    templateFactory.newClientRestTemplate(
+                        appInfo.getClientId(),
+                        appInfo.getClientSecret()
+                    );
 
-						// Update authorization record with /oauth/token
-						// response data
-						authorizationService.merge(authorization);
+                ResponseEntity<OAuth2AccessToken> resp = restTemplate.exchange(
+                    tokenEndpoint,
+                    HttpMethod.POST,
+                    request,
+                    OAuth2AccessToken.class
+                );
+                OAuth2AccessToken token = resp.getBody();
+                log.info("← token-response: value={}", token != null ? token.getValue() : "null");
 
-						// now do the initial import of the Authorized Resource,
-						// if it is
-						// not ready, then we will wait till we receive a Notify
-						// or the UX call for it.
-						// TODO: create a Subscription to work with if needed
+                if (token != null && token.getValue() != null) {
+                    // populate your Authorization entity
+                    authorization.setAccessToken(token.getValue());
+                    authorization.setTokenType(token.getTokenType());
+                    // *** FIX: cast int → long here ***
+                    authorization.setExpiresIn((long) token.getExpiresIn());
 
-						RetailCustomer currentCustomer = currentCustomer(principal);
+                    if (token.getRefreshToken() != null) {
+                        authorization.setRefreshToken(token.getRefreshToken().getValue());
+                    }
 
-						try {
-							usagePointRESTRepository
-									.findAllByRetailCustomerId(currentCustomer
-											.getId());
+                    authorization.setScope(String.join(" ", token.getScope()));
 
-						} catch (JAXBException e) {
-							// nothing there, so log the fact and move on. It
-							// will get imported later.
-							System.out.printf(
-									"\nThirdParty Import Exception: %s\n",
-									e.toString());
-							e.printStackTrace();
-						}
-					} else {
+                    // pick up any extras
+                    Map<String,Object> extras = token.getAdditionalInformation();
+                    if (extras.containsKey("authorizationURI")) {
+                        authorization.setAuthorizationURI((String) extras.get("authorizationURI"));
+                    }
+                    if (extras.containsKey("resourceURI")) {
+                        authorization.setResourceURI((String) extras.get("resourceURI"));
+                    }
 
-						System.out
-								.printf("\n/oauth/token Request did not return an access token\n");
-					}
+                    authorization.setStatus("1");
+                    authorization.setState(null);
+                    authorization.setUpdated(new GregorianCalendar());
+                    authorizationService.merge(authorization);
 
-				} catch (HttpClientErrorException x) {
+                    // optional: import UsagePoints immediately
+                    long customerId = currentCustomer(principal).getId();
+                    try {
+                        usagePointRESTRepository.findAllByRetailCustomerId(customerId);
+                    } catch (JAXBException ignore) { }
+                } else {
+                    log.error("/oauth/token returned no access_token");
+                }
 
-					// TODO: Extract error, error_description and error_uri from
-					// JSON response. Currently recording null for all three
-					// fields.
+            } else {
+                log.error("authorization error: {} – {}", error, error_description);
+                authorization.setError(error);
+                authorization.setErrorDescription(error_description);
+                authorization.setErrorUri(error_uri);
+                authorization.setStatus("2");
+                authorization.setState(null);
+                authorization.setUpdated(new GregorianCalendar());
+                authorizationService.merge(authorization);
+                throw new UserDeniedAuthorizationException("Error: " + error_description);
+            }
 
-					// Update authorization record
-					System.out.printf("\nHTTPClientException: %s\n",
-							x.toString());
+        } catch (NoResultException | EmptyResultDataAccessException ex) {
+            return "/home";  // no matching state → back to home
 
-					authorization.setError(error);
-					authorization.setErrorDescription(error_description);
-					authorization.setErrorUri(error_uri);
-					authorization.setUpdated(new GregorianCalendar());
-					authorization.setStatus("2"); // Set authorization record
-													// status as "Denied"
-					authorization.setState(null); // Clear State as a security
-													// measure
-					authorizationService.merge(authorization);
+        } catch (HttpClientErrorException ex) {
+            log.error("token exchange failed", ex);
+            throw new UserDeniedAuthorizationException("Unable to retrieve OAuth token", ex);
+        }
 
-					// TODO: Should the "message" differ based on the exception?
-					throw new UserDeniedAuthorizationException(
-							"Unable to retrieve OAuth token", x);
-				}
-			} else {
+        // redirect to the PetSafe FE connected data page
+        String petsafePort = System.getenv().getOrDefault("VITE_PETSAFE_PORT", "5174");
+        if (!petsafePort.matches("[0-9]{2,5}")) petsafePort = "5174";
+        return "redirect:http://localhost:" + petsafePort + "/?success=true&state=" + state + "&uuid=" + authorization.getUUID();
+    }
 
-				System.out
-						.printf("\nOAuth2 authorization_request returned an error:\n");
-				System.out.printf("Error:             " + error + "\n");
-				System.out.printf("Error_description: " + error_description
-						+ "\n");
-				System.out.printf("Error_uri:         " + error_uri + "\n");
+    @RequestMapping(value = "/api/auth/getToken", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getToken(@RequestParam String uuid) {
+        try {
+            Authorization auth = authorizationService.findByUUID(UUID.fromString(uuid));
+            if (auth == null) {
+                log.warn("No authorization found for UUID: {}", uuid);
+                return ResponseEntity.notFound().build();
+            }
+            
+            String accessToken = auth.getAccessToken();
+            if (accessToken == null) {
+                log.warn("No access token found for UUID: {}", uuid);
+                return ResponseEntity.status(401).body(Map.of("error", "No access token available"));
+            }
+            
+            log.info("Returning access token for UUID: {}", uuid);
+            return ResponseEntity.ok(Map.of("access_token", accessToken));
+        } catch (Exception e) {
+            log.error("Error retrieving token for UUID: " + uuid, e);
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
 
-				// Update authorization record with error response
-				authorization.setError(error);
-				authorization.setErrorDescription(error_description);
-				authorization.setErrorUri(error_uri);
-				authorization.setUpdated(new GregorianCalendar());
-				authorization.setStatus("2"); // Set authorization record status
-												// as "Denied"
-				authorization.setState(null); // Clear State as a security
-												// measure
-				authorizationService.merge(authorization);
+    @RequestMapping(value = "/api/auth/currentToken", method = RequestMethod.GET)
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getCurrentToken(Authentication principal) {
+        try {
+            long customerId = currentCustomer(principal).getId();
+            log.info("Fetching current token for customer ID: {}", customerId);
+            
+            // Get the most recent authorization for this customer
+            List<Authorization> authorizations = authorizationService.findAllByRetailCustomerId(customerId);
+            if (authorizations == null || authorizations.isEmpty()) {
+                log.warn("No authorizations found for customer ID: {}", customerId);
+                return ResponseEntity.status(404).body(Map.of("error", "No authorizations found"));
+            }
+            
+            // Find the most recent authorization with an access token
+            Authorization latestAuth = authorizations.stream()
+                .filter(auth -> auth.getAccessToken() != null)
+                .max((a1, a2) -> a1.getPublished().compareTo(a2.getPublished()))
+                .orElse(null);
+                
+            if (latestAuth == null || latestAuth.getAccessToken() == null) {
+                log.warn("No valid access token found for customer ID: {}", customerId);
+                return ResponseEntity.status(404).body(Map.of("error", "No valid access token found"));
+            }
+            
+            log.info("Returning current access token for customer ID: {}, token: {}", customerId, latestAuth.getAccessToken());
+            return ResponseEntity.ok(Map.of(
+                "access_token", latestAuth.getAccessToken(),
+                "authorization_id", latestAuth.getId(),
+                "published", latestAuth.getPublished()
+            ));
+        } catch (Exception e) {
+            log.error("Error retrieving current token", e);
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+        }
+    }
 
-				throw new UserDeniedAuthorizationException("Error: "
-						+ error_description);
-
-			}
-
-		} catch (NoResultException | EmptyResultDataAccessException e) {
-
-			// We received an invalid /oauth/authorization response
-			// TODO: Log receipt of an invalid /oauth/authorization response
-			return "/home";
-
-		}
-
-		return "redirect:/RetailCustomer/" + currentCustomer(principal).getId()
-				+ "/AuthorizationList";
-	}
-
-	@RequestMapping(value = Routes.THIRD_PARTY_AUTHORIZATION, method = RequestMethod.GET)
-	public String index(ModelMap model, Authentication principal) {
-		model.put(
-				"authorizationList",
-				authorizationService.findAllByRetailCustomerId(currentCustomer(
-						principal).getId()));
-		return "/RetailCustomer/AuthorizationList/index";
-	}
-
-	public void setAuthorizationService(
-			AuthorizationService authorizationService) {
-		this.authorizationService = authorizationService;
-	}
-
-	public AuthorizationService getAuthorizationService() {
-		return this.authorizationService;
-	}
-
-	public void setUsagePointRESTRepository(
-			UsagePointRESTRepository usagePointRESTRepository) {
-		this.usagePointRESTRepository = usagePointRESTRepository;
-	}
-
-	public UsagePointRESTRepository getUsagePointRESTRepository() {
-		return this.usagePointRESTRepository;
-	}
-
-	public void setClientRestTemplateFactory(
-			ClientRestTemplateFactory templateFactory) {
-		this.templateFactory = templateFactory;
-	}
-
-	public ClientRestTemplateFactory getClientRestTemplateFactory() {
-		return this.templateFactory;
-	}
-
+    @RequestMapping(value = Routes.THIRD_PARTY_AUTHORIZATION, method = RequestMethod.GET)
+    public String index(ModelMap model, Authentication principal) {
+        long customerId = currentCustomer(principal).getId();
+        model.put("authorizationList",
+            authorizationService.findAllByRetailCustomerId(customerId));
+        return "/RetailCustomer/AuthorizationList/index";
+    }
 }

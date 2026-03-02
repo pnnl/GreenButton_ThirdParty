@@ -42,15 +42,17 @@
                         </div>
                     </c:if>
 
-                    <form name="f" action="<c:url value='/j_spring_security_check'/>" method="POST">
+                    <form name="f" action="<c:url value='/login'/>" method="POST">
                         <fieldset>
                             <div class="clearfix">
-                                <input type="text" name="j_username" placeholder="Username" autofocus="autofocus">
+                                <input type="text" name="username" placeholder="Username" autofocus="autofocus">
                             </div>
                             <div class="clearfix">
-                                <input type="password" name="j_password" placeholder="Password">
+                                <input type="password" name="password" placeholder="Password">
                             </div>
-                            <button class="btn primary" name="submit" type="submit">Sign in</button>
+                            <input type="hidden"  name="${_csrf.parameterName}" value="${_csrf.token}"/>
+                    
+                            <button class="btn primary" type="submit">Sign in</button>
                         </fieldset>
                     </form>
                 </div>

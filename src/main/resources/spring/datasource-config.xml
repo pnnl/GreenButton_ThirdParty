@@ -20,12 +20,19 @@
   -->
 
 <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xmlns:p="http://www.springframework.org/schema/p"
-       xsi:schemaLocation="http://www.springframework.org/schema/beans
-         http://www.springframework.org/schema/beans/spring-beans.xsd">
+xmlns:p="http://www.springframework.org/schema/p"
+xmlns:context="http://www.springframework.org/schema/context"
+xsi:schemaLocation="http://www.springframework.org/schema/beans
+  http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://www.springframework.org/schema/context
+  http://www.springframework.org/schema/context/spring-context.xsd">
 
 
-    <bean id="dataSource" class="org.apache.tomcat.jdbc.pool.DataSource"
+
+        <bean id="dataSource" class="org.apache.tomcat.jdbc.pool.DataSource"
           p:driverClassName="${jdbc.driverClassName}" p:url="${jdbc.url}"
-          p:username="${jdbc.username}" p:password="${jdbc.password}" p:initialSize="10" p:maxActive="20" p:maxIdle="5" p:minIdle="2"/>
+          p:username="${jdbc.username}" p:password="${jdbc.password}"
+          p:initialSize="10" p:maxActive="20" p:maxIdle="5" p:minIdle="2"
+          p:testOnBorrow="true" p:validationQuery="SELECT 1" p:validationInterval="30000"
+          p:testWhileIdle="true" p:timeBetweenEvictionRunsMillis="30000" p:minEvictableIdleTimeMillis="60000"/>
 </beans>

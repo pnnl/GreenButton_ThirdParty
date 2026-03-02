@@ -1,87 +1,97 @@
-/*
- *
- *    Copyright (c) 2018-2021 Green Button Alliance, Inc.
- *
- *    Portions (c) 2013-2018 EnergyOS.org
- *
- *     Licensed under the Apache License, Version 2.0 (the "License");
- *     you may not use this file except in compliance with the License.
- *     You may obtain a copy of the License at
- *
- *         http://www.apache.org/licenses/LICENSE-2.0
- *
- *     Unless required by applicable law or agreed to in writing, software
- *     distributed under the License is distributed on an "AS IS" BASIS,
- *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *     See the License for the specific language governing permissions and
- *     limitations under the License.
- *
- */
-
 package org.greenbuttonalliance.espi.thirdparty.web;
 
-import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.HttpException;
 import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.AuthState;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.protocol.ClientContext;
+import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.protocol.ExecutionContext;
 import org.apache.http.protocol.HttpContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
+import org.springframework.http.client.ClientHttpRequestExecution;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.converter.FormHttpMessageConverter;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 
 public class ClientRestTemplate extends RestTemplate {
 
-	public ClientRestTemplate() {
-	}
+    private static final Logger LOG = LoggerFactory.getLogger(ClientRestTemplate.class);
 
-	public ClientRestTemplate(String username, String password) {
-		DefaultHttpClient httpClient = new DefaultHttpClient();
-		BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-		credentialsProvider.setCredentials(new AuthScope(AuthScope.ANY_HOST,
-				AuthScope.ANY_PORT), new UsernamePasswordCredentials(username,
-				password));
-		httpClient.setCredentialsProvider(credentialsProvider);
-		httpClient.addRequestInterceptor(new PreemptiveAuthInterceptor(), 0);
-		ClientHttpRequestFactory rf = new HttpComponentsClientHttpRequestFactory(
-				httpClient);
+    public ClientRestTemplate() {
+        super();
+    }
 
-		this.setRequestFactory(rf);
-	}
+    public ClientRestTemplate(String username, String password) {
+        // 1) Set up Apache HttpClient with preemptive basic auth:
+        DefaultHttpClient httpClient = new DefaultHttpClient();
+        CredentialsProvider credsProvider = new BasicCredentialsProvider();
+        credsProvider.setCredentials(
+            new AuthScope(AuthScope.ANY_HOST, AuthScope.ANY_PORT),
+            new UsernamePasswordCredentials(username, password)
+        );
+        httpClient.setCredentialsProvider(credsProvider);
+        httpClient.addRequestInterceptor(new PreemptiveAuthInterceptor(), 0);
 
-	static class PreemptiveAuthInterceptor implements HttpRequestInterceptor {
+        // 2) Wire HttpClient into Spring RestTemplate:
+        ClientHttpRequestFactory rf =
+            new HttpComponentsClientHttpRequestFactory(httpClient);
+        this.setRequestFactory(rf);
 
-		@SuppressWarnings("deprecation")
-		// TODO there are two deprecated calls here ...
-		public void process(final HttpRequest request, final HttpContext context)
-				throws HttpException, IOException {
-			AuthState authState = (AuthState) context
-					.getAttribute(ClientContext.TARGET_AUTH_STATE);
+        // 3) Add converters for form‑encoded POST and JSON:
+        this.getMessageConverters().add(new FormHttpMessageConverter());
+        this.getMessageConverters().add(new MappingJackson2HttpMessageConverter());
 
-			if (authState.getAuthScheme() == null) {
-				CredentialsProvider credsProvider = (CredentialsProvider) context
-						.getAttribute(ClientContext.CREDS_PROVIDER);
-				HttpHost targetHost = (HttpHost) context
-						.getAttribute(ExecutionContext.HTTP_TARGET_HOST);
-				Credentials creds = credsProvider.getCredentials(new AuthScope(
-						targetHost.getHostName(), targetHost.getPort()));
-				if (creds == null)
-					throw new HttpException(
-							"No credentials for preemptive authentication");
-				authState.setAuthScheme(new BasicScheme());
-				authState.setCredentials(creds);
-			}
-		}
-	}
+        // 4) Optional: log outbound requests
+        this.getInterceptors().add(new ClientHttpRequestInterceptor() {
+            @Override
+            public ClientHttpResponse intercept(
+                    org.springframework.http.HttpRequest req,
+                    byte[] body,
+                    ClientHttpRequestExecution exec) throws IOException {
+                LOG.info("REST → {} {}", req.getMethod(), req.getURI());
+                return exec.execute(req, body);
+            }
+        });
+    }
+
+    /**
+     * Interceptor to inject BasicScheme into the targetAuthState
+     * before the request is executed (preemptive auth).
+     */
+    static class PreemptiveAuthInterceptor implements org.apache.http.HttpRequestInterceptor {
+        @Override
+        public void process(org.apache.http.HttpRequest request, HttpContext context)
+                throws HttpException, IOException {
+            // Wrap the HttpContext in HttpClientContext for easy attribute access:
+            HttpClientContext clientContext = HttpClientContext.adapt(context);
+
+            // Get the target AuthState; if no scheme yet, set up BasicScheme + credentials:
+            org.apache.http.auth.AuthState authState = clientContext.getTargetAuthState();
+            if (authState.getAuthScheme() == null) {
+                CredentialsProvider cp = clientContext.getCredentialsProvider();
+                HttpHost target = clientContext.getTargetHost();
+
+                Credentials creds = cp.getCredentials(
+                    new AuthScope(target.getHostName(), target.getPort())
+                );
+                if (creds == null) {
+                    throw new HttpException("No credentials for preemptive auth");
+                }
+                authState.setAuthScheme(new BasicScheme());
+                authState.setCredentials(creds);
+            }
+        }
+    }
 }

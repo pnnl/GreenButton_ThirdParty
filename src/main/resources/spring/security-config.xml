@@ -1,58 +1,71 @@
-<!--
-  ~
-  ~    Copyright (c) 2018-2021 Green Button Alliance, Inc.
-  ~
-  ~    Portions (c) 2013-2018 EnergyOS.org
-  ~
-  ~     Licensed under the Apache License, Version 2.0 (the "License");
-  ~     you may not use this file except in compliance with the License.
-  ~     You may obtain a copy of the License at
-  ~
-  ~         http://www.apache.org/licenses/LICENSE-2.0
-  ~
-  ~     Unless required by applicable law or agreed to in writing, software
-  ~     distributed under the License is distributed on an "AS IS" BASIS,
-  ~     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  ~     See the License for the specific language governing permissions and
-  ~     limitations under the License.
-  ~
-  -->
-
-<beans:beans xmlns="http://www.springframework.org/schema/security"
-             xmlns:beans="http://www.springframework.org/schema/beans"
-             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-             xsi:schemaLocation="http://www.springframework.org/schema/beans
-           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
-           http://www.springframework.org/schema/security
-           http://www.springframework.org/schema/security/spring-security-3.2.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans 
+    xmlns="http://www.springframework.org/schema/security"
+    xmlns:beans="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="
+      http://www.springframework.org/schema/beans 
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+      http://www.springframework.org/schema/security 
+        http://www.springframework.org/schema/security/spring-security-4.2.xsd">
 
     <http use-expressions="true">
-        <intercept-url pattern="/" access="permitAll" />
-        <intercept-url pattern="/home" access="permitAll" />
-        <intercept-url pattern="/TermsOfService" access="permitAll" />
-        <intercept-url pattern="/UsagePolicy" access="permitAll" />
-        <intercept-url pattern="/login*" access="permitAll"/>
-        <intercept-url pattern="/default" access="permitAll" />
+        <!-- <<< DISABLE CSRF <<< -->
+        <csrf disabled="true"/>
 
-        <intercept-url pattern="/espi/1_1/Notification"  access="permitAll" />
+    <!-- permit all common public endpoints -->
+    <intercept-url pattern="/api/auth/login" access="permitAll"/>
+    <intercept-url pattern="/api/auth/authorize" access="permitAll"/>
+    <intercept-url pattern="/api/auth/token" access="permitAll"/>
+    <intercept-url pattern="/api/auth/getToken" access="permitAll"/>
+    <intercept-url pattern="/api/server/**" access="permitAll"/>
+        <intercept-url pattern="/"                   access="permitAll"/>
+        <intercept-url pattern="/home"               access="permitAll"/>
+        <intercept-url pattern="/TermsOfService"     access="permitAll"/>
+        <intercept-url pattern="/UsagePolicy"        access="permitAll"/>
+        <intercept-url pattern="/login*"             access="permitAll"/>
+        <intercept-url pattern="/default"            access="permitAll"/>
 
-        <intercept-url pattern="/resources/**" access="permitAll"/>
-        <intercept-url pattern="/batchLists" access="hasRole('ROLE_CUSTODIAN')"/>
+        <!-- allow unauthenticated notifications and static resources -->
+        <intercept-url pattern="/espi/1_1/Notification"   access="permitAll"/>
+        <intercept-url pattern="/resources/**"            access="permitAll"/>
+        <intercept-url pattern="/batchLists"              access="hasRole('ROLE_CUSTODIAN')"/>
 
-        <intercept-url pattern="/espi/1_1/RetailCustomer/**"  access="hasRole('ROLE_USER')" />
-        <intercept-url pattern="/custodian/**"  access="hasRole('ROLE_CUSTODIAN')" />
-        <intercept-url pattern="/**"  access="hasRole('ROLE_USER')" />
+        <!-- OAuth2 callback must be open -->
+        <intercept-url pattern="/espi/1_1/OAuthCallBack"  access="permitAll"/>
 
-        <form-login login-page="/login" default-target-url="/default"/>
-        <logout logout-success-url="/" delete-cookies="JSESSIONID"/>
+        <!-- your ScopeSelection endpoints -->
+        <intercept-url 
+            pattern="/RetailCustomer/ScopeSelection" 
+            access="hasRole('ROLE_USER')"/>
+        <intercept-url 
+            pattern="/RetailCustomer/{retailCustomerId}/ScopeSelection" 
+            access="hasRole('ROLE_USER')"/>
+
+        <!-- all RetailCustomer/** pages -->
+        <intercept-url pattern="/RetailCustomer/**"       access="hasRole('ROLE_USER')"/>
+
+        <!-- custodian-only management -->
+        <intercept-url pattern="/custodian/**"           access="hasRole('ROLE_CUSTODIAN')"/>
+
+        <!-- catch-all last -->
+        <intercept-url pattern="/**"                     access="hasRole('ROLE_USER')"/>
+
+        <form-login    login-page="/login" default-target-url="/default"/>
+        <logout        logout-success-url="/" delete-cookies="JSESSIONID"/>
 
         <session-management invalid-session-url="/">
-            <concurrency-control max-sessions="1" error-if-maximum-exceeded="false" expired-url="/login"/>
+            <concurrency-control 
+                max-sessions="1" 
+                error-if-maximum-exceeded="false" 
+                expired-url="/login"/>
         </session-management>
 
-        <anonymous />
+        <anonymous/>
         <remember-me/>
-        <custom-filter ref="oauth2ClientFilter" after="EXCEPTION_TRANSLATION_FILTER" />
+
+        <!-- ensure OAuth2 client filter is in the chain -->
+        <custom-filter ref="oauth2ClientFilter" after="EXCEPTION_TRANSLATION_FILTER"/>
 
         <access-denied-handler error-page="/WEB-INF/jsp/403.jsp"/>
     </http>
@@ -60,4 +73,10 @@
     <authentication-manager xmlns="http://www.springframework.org/schema/security">
         <authentication-provider user-service-ref="retailCustomerServiceImpl"/>
     </authentication-manager>
+
+    <authentication-manager id="authenticationManager"
+        xmlns="http://www.springframework.org/schema/security">
+        <authentication-provider user-service-ref="retailCustomerServiceImpl"/>
+    </authentication-manager>
+
 </beans:beans>

@@ -418,14 +418,17 @@ CREATE TABLE `authorizations` (
   `tokenType` int(11) DEFAULT NULL,
   `application_information_id` bigint(20) DEFAULT NULL,
   `retail_customer_id` bigint(20) DEFAULT NULL,
+  `subscription_id` bigint(20) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `FK_07d970a228174a4aac7769da9e9` (`application_information_id`),
   KEY `FK_af2eb44c080549d7b5594d2a337` (`retail_customer_id`),
   KEY `FK_de4f6ccf50234069bdb31861c17` (`application_information_id`),
   KEY `FK_468cce86579947a0862885b7989` (`retail_customer_id`),
+  KEY `FK_subscription_id_auth` (`subscription_id`),
   CONSTRAINT `FK_468cce86579947a0862885b7989` FOREIGN KEY (`retail_customer_id`) REFERENCES `retail_customers` (`id`),
   CONSTRAINT `FK_07d970a228174a4aac7769da9e9` FOREIGN KEY (`application_information_id`) REFERENCES `application_information` (`id`),
   CONSTRAINT `FK_af2eb44c080549d7b5594d2a337` FOREIGN KEY (`retail_customer_id`) REFERENCES `retail_customers` (`id`),
+  CONSTRAINT `FK_subscription_id_auth` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`),
   CONSTRAINT `FK_de4f6ccf50234069bdb31861c17` FOREIGN KEY (`application_information_id`) REFERENCES `application_information` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;

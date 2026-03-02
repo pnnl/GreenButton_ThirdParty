@@ -42,7 +42,9 @@ public class BaseController {
 	}
 
 	public boolean isUserUserRole(Principal principal) {
+		System.out.println(principal);
 		return checkRole(principal, RetailCustomer.ROLE_USER);
+		
 	}
 
 	private boolean checkRole(Principal principal, String givenRole) {

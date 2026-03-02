@@ -65,6 +65,14 @@ local.properties
 .vscode/
 
 ######################
+# Local Dev Artifacts
+######################
+.history/
+history/
+venv/
+.venv/
+
+######################
 # Maven
 ######################
 /log/
@@ -115,7 +123,8 @@ Desktop.ini
 ######################
 # Logs
 ######################
-*.log
+*.log*
+*.pid
 
 ######################
 # Others

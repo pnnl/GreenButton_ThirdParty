@@ -1,0 +1,11 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Thu May 01 13:52:00 PDT 2025
+http\://maven.springframework.org/release/.error=Could not transfer artifact org.springframework\:spring-context\:jar\:4.3.30.RELEASE from/to spring-maven-release (http\://maven.springframework.org/release)\: maven.springframework.org
+@default-spring-maven-snapshot-http\://maven.springframework.org/snapshot/.lastUpdated=1746132715112
+https\://oss.sonatype.org/content/repositories/snapshots/.lastUpdated=1746132716278
+https\://oss.sonatype.org/content/repositories/snapshots/.error=
+https\://oss.sonatype.org/content/repositories/releases/.lastUpdated=1746132720780
+http\://maven.springframework.org/snapshot/.error=Could not transfer artifact org.springframework\:spring-context\:jar\:4.3.30.RELEASE from/to spring-maven-snapshot (http\://maven.springframework.org/snapshot)\: maven.springframework.org
+http\://maven.springframework.org/milestone/.error=Could not transfer artifact org.springframework\:spring-context\:jar\:4.3.30.RELEASE from/to spring-maven-milestone (http\://maven.springframework.org/milestone)\: maven.springframework.org
+@default-spring-maven-milestone-http\://maven.springframework.org/milestone/.lastUpdated=1746132715087
+@default-spring-maven-release-http\://maven.springframework.org/release/.lastUpdated=1746132715059

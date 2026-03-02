@@ -1,0 +1,11 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Thu May 01 13:49:15 PDT 2025
+http\://maven.springframework.org/release/.error=Could not transfer artifact org.apache.tomcat\:tomcat-jdbc\:pom\:7.0.109 from/to spring-maven-release (http\://maven.springframework.org/release)\: maven.springframework.org
+@default-spring-maven-snapshot-http\://maven.springframework.org/snapshot/.lastUpdated=1746132555493
+https\://oss.sonatype.org/content/repositories/snapshots/.lastUpdated=1746132555526
+https\://oss.sonatype.org/content/repositories/snapshots/.error=
+https\://oss.sonatype.org/content/repositories/releases/.lastUpdated=1746132555608
+http\://maven.springframework.org/snapshot/.error=Could not transfer artifact org.apache.tomcat\:tomcat-jdbc\:pom\:7.0.109 from/to spring-maven-snapshot (http\://maven.springframework.org/snapshot)\: maven.springframework.org
+http\://maven.springframework.org/milestone/.error=Could not transfer artifact org.apache.tomcat\:tomcat-jdbc\:pom\:7.0.109 from/to spring-maven-milestone (http\://maven.springframework.org/milestone)\: maven.springframework.org
+@default-spring-maven-milestone-http\://maven.springframework.org/milestone/.lastUpdated=1746132555492
+@default-spring-maven-release-http\://maven.springframework.org/release/.lastUpdated=1746132555491
